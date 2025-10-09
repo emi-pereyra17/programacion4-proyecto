@@ -125,7 +125,7 @@ app.UseStaticFiles();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("./swagger/v1/swagger.json", "BicTechBack API V1");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "BicTechBack API V1");
     c.RoutePrefix = "swagger"; // Accesible en /swagger
 });
 

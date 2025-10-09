@@ -1,4 +1,4 @@
-﻿using BicTechBack.src.Core.Interfaces;
+using BicTechBack.src.Core.Interfaces;
 using BicTechBack.src.Core.Services;
 using BicTechBack.src.Infrastructure.Data;
 using BicTechBack.src.Infrastructure.Repositories;
@@ -9,7 +9,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
+// Servicios
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -26,12 +26,12 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 
-    // Incluye comentarios XML
+    // Comentarios XML
     var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = System.IO.Path.Combine(AppContext.BaseDirectory, xmlFile);
     options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
 
-    // 🔒 Configuración de seguridad JWT para Swagger
+    // Seguridad JWT
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -58,7 +58,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-
+// Repositorios y servicios
 builder.Services.AddScoped<IProductoRepository, ProductoRepository>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IPedidoDetalleRepository, PedidoDetalleRepository>();
@@ -92,12 +92,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
-// Leer Jwt de variables de entorno (si existen), sino usar appsettings.json
+// JWT
 var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY") ?? builder.Configuration["Jwt:Key"];
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? builder.Configuration["Jwt:Issuer"];
 var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? builder.Configuration["Jwt:Audience"];
-
-var key = jwtKey; // la clave para firmar tokens
+var key = jwtKey;
 
 builder.Services.AddAuthentication(options =>
 {
@@ -115,23 +114,28 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
-        RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role" 
+        RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
     };
 });
 
 var app = builder.Build();
 
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// 🔹 Contenido estático + Swagger en cualquier entorno
+app.UseStaticFiles();
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "BicTechBack API V1");
-    c.RoutePrefix = "swagger"; 
+    c.SwaggerEndpoint("./swagger/v1/swagger.json", "BicTechBack API V1");
+    c.RoutePrefix = "swagger"; // Accesible en /swagger
 });
-}
+
+// 🔹 Redirigir '/' a Swagger
+app.MapGet("/", context =>
+{
+    context.Response.Redirect("/swagger");
+    return Task.CompletedTask;
+});
+
 app.UseCors("AllowAll");
 
 app.UseMiddleware<BicTechBack.src.API.Extensions.ExceptionMiddleware>();
@@ -139,7 +143,6 @@ app.UseMiddleware<BicTechBack.src.API.Extensions.ExceptionMiddleware>();
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
-
 app.UseAuthorization();
 
 app.MapControllers();

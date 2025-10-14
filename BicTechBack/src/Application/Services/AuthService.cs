@@ -155,28 +155,40 @@ namespace BicTechBack.src.Core.Services
         }
 
         private string GenerateJwtToken(Usuario usuario)
-        {
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
-                new Claim(JwtRegisteredClaimNames.Email, usuario.Email),
-                new Claim("nombre", usuario.Nombre),
-                new Claim(ClaimTypes.Role, usuario.Rol.ToString())
-            };
+{
+    var claims = new[]
+    {
+        new Claim(JwtRegisteredClaimNames.Sub, usuario.Id.ToString()),
+        new Claim(JwtRegisteredClaimNames.Email, usuario.Email),
+        new Claim("nombre", usuario.Nombre),
+        new Claim(ClaimTypes.Role, usuario.Rol.ToString())
+    };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+    // 🔹 Prioriza las variables de entorno (Render) y si no están, usa appsettings.json
+    var keyString = _configuration["JWT_KEY"] ?? _configuration["Jwt:Key"];
+    var issuer = _configuration["JWT_ISSUER"] ?? _configuration["Jwt:Issuer"];
+    var audience = _configuration["JWT_AUDIENCE"] ?? _configuration["Jwt:Audience"];
 
-            var token = new JwtSecurityToken(
-                issuer: _configuration["Jwt:Issuer"],
-                audience: _configuration["Jwt:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddHours(2),
-                signingCredentials: creds
-                );
+    if (string.IsNullOrWhiteSpace(keyString))
+        throw new Exception("❌ No se encontró JWT_KEY o Jwt:Key en la configuración.");
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
-        }
+    if (keyString.Length < 32)
+        throw new Exception("❌ JWT_KEY es demasiado corto. Debe tener al menos 32 caracteres.");
+
+    var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyString));
+    var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+    var token = new JwtSecurityToken(
+        issuer: issuer,
+        audience: audience,
+        claims: claims,
+        expires: DateTime.UtcNow.AddHours(2),
+        signingCredentials: creds
+    );
+
+    return new JwtSecurityTokenHandler().WriteToken(token);
+}
+
         private string GenerateRefreshToken()
         {
             var randomNumber = new byte[32];
